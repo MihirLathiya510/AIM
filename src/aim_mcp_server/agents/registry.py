@@ -1,10 +1,15 @@
 """
 Agent registry for managing and routing to different agent types.
+
+Supports two modes:
+1. API Mode: Uses ClaudeAgent with API key (full autonomous operation)
+2. Claude Code Mode: Uses ClaudeCodeAgent (for Pro users without API key)
 """
 
 from typing import Dict, List, Optional
 from .base import Agent, AgentType, AgentCapability, AgentTask
 from .claude import ClaudeAgent
+from .claude_code import ClaudeCodeAgent
 
 
 class AgentRegistry:
@@ -13,67 +18,118 @@ class AgentRegistry:
     def __init__(self):
         """Initialize agent registry."""
         self.agents: Dict[AgentType, Agent] = {}
+        self.mode: str = "unknown"  # "api" or "claude_code"
         self._initialize_default_agents()
     
     def _initialize_default_agents(self) -> None:
-        """Initialize default agent pool."""
+        """
+        Initialize default agent pool.
+        
+        Supports two modes:
+        1. API Mode: If ANTHROPIC_API_KEY is set, use ClaudeAgent (autonomous)
+        2. Claude Code Mode: If no API key, use ClaudeCodeAgent (delegated)
+        """
         import os
         import sys
         
-        # Check for API key before attempting to initialize agents
-        if not os.getenv("ANTHROPIC_API_KEY"):
-            error_msg = (
-                "ANTHROPIC_API_KEY environment variable not set.\n"
-                "AIM requires an Anthropic API key to function.\n\n"
-                "Please set it with:\n"
-                "  export ANTHROPIC_API_KEY='your-key-here'\n\n"
-                "Or add it to your Claude Desktop config:\n"
-                '  "env": {"ANTHROPIC_API_KEY": "your-key-here"}'
-            )
-            print(f"ERROR: {error_msg}", file=sys.stderr)
-            raise ValueError(error_msg)
+        has_api_key = bool(os.getenv("ANTHROPIC_API_KEY"))
         
-        try:
-            # Create specialized agents
-            self.agents[AgentType.CODING] = ClaudeAgent(
-                agent_type=AgentType.CODING,
-                capabilities=[
-                    AgentCapability.CODE_GENERATION,
-                    AgentCapability.REFACTORING,
-                ]
-            )
+        if has_api_key:
+            # MODE 1: API Key available - Use ClaudeAgent for autonomous operation
+            print("🔑 AIM Mode: API Key detected - Using autonomous Claude API", file=sys.stderr)
+            self.mode = "api"
             
-            self.agents[AgentType.TESTING] = ClaudeAgent(
-                agent_type=AgentType.TESTING,
-                capabilities=[AgentCapability.TEST_GENERATION]
-            )
+            try:
+                # Create specialized agents with API access
+                self.agents[AgentType.CODING] = ClaudeAgent(
+                    agent_type=AgentType.CODING,
+                    capabilities=[
+                        AgentCapability.CODE_GENERATION,
+                        AgentCapability.REFACTORING,
+                    ]
+                )
+                
+                self.agents[AgentType.TESTING] = ClaudeAgent(
+                    agent_type=AgentType.TESTING,
+                    capabilities=[AgentCapability.TEST_GENERATION]
+                )
+                
+                self.agents[AgentType.DOCUMENTATION] = ClaudeAgent(
+                    agent_type=AgentType.DOCUMENTATION,
+                    capabilities=[AgentCapability.DOCUMENTATION]
+                )
+                
+                self.agents[AgentType.REVIEW] = ClaudeAgent(
+                    agent_type=AgentType.REVIEW,
+                    capabilities=[
+                        AgentCapability.CODE_REVIEW,
+                        AgentCapability.VALIDATION,
+                    ]
+                )
+                
+                self.agents[AgentType.GENERAL] = ClaudeAgent(
+                    agent_type=AgentType.GENERAL,
+                    capabilities=list(AgentCapability)
+                )
+                
+                print("✓ All API-based agents initialized successfully", file=sys.stderr)
             
-            self.agents[AgentType.DOCUMENTATION] = ClaudeAgent(
-                agent_type=AgentType.DOCUMENTATION,
-                capabilities=[AgentCapability.DOCUMENTATION]
-            )
-            
-            self.agents[AgentType.REVIEW] = ClaudeAgent(
-                agent_type=AgentType.REVIEW,
-                capabilities=[
-                    AgentCapability.CODE_REVIEW,
-                    AgentCapability.VALIDATION,
-                ]
-            )
-            
-            self.agents[AgentType.GENERAL] = ClaudeAgent(
-                agent_type=AgentType.GENERAL,
-                capabilities=list(AgentCapability)
-            )
+            except ValueError:
+                # Re-raise ValueError (from API key validation)
+                raise
+            except Exception as e:
+                # For other unexpected errors, provide clear error message
+                error_msg = f"Failed to initialize API agents: {e}"
+                print(f"ERROR: {error_msg}", file=sys.stderr)
+                raise RuntimeError(error_msg) from e
         
-        except ValueError:
-            # Re-raise ValueError (from API key check or ClaudeAgent init)
-            raise
-        except Exception as e:
-            # For other unexpected errors, provide clear error message
-            error_msg = f"Failed to initialize AI agents: {e}"
-            print(f"ERROR: {error_msg}", file=sys.stderr)
-            raise RuntimeError(error_msg) from e
+        else:
+            # MODE 2: No API Key - Use ClaudeCodeAgent (delegated mode)
+            print("💬 AIM Mode: No API key - Using Claude Code delegation", file=sys.stderr)
+            print("   Tasks will be delegated back to Claude Code for execution", file=sys.stderr)
+            print("   This mode works with Claude Pro without requiring API access", file=sys.stderr)
+            self.mode = "claude_code"
+            
+            try:
+                # Create specialized agents that delegate to Claude Code
+                self.agents[AgentType.CODING] = ClaudeCodeAgent(
+                    agent_type=AgentType.CODING,
+                    capabilities=[
+                        AgentCapability.CODE_GENERATION,
+                        AgentCapability.REFACTORING,
+                    ]
+                )
+                
+                self.agents[AgentType.TESTING] = ClaudeCodeAgent(
+                    agent_type=AgentType.TESTING,
+                    capabilities=[AgentCapability.TEST_GENERATION]
+                )
+                
+                self.agents[AgentType.DOCUMENTATION] = ClaudeCodeAgent(
+                    agent_type=AgentType.DOCUMENTATION,
+                    capabilities=[AgentCapability.DOCUMENTATION]
+                )
+                
+                self.agents[AgentType.REVIEW] = ClaudeCodeAgent(
+                    agent_type=AgentType.REVIEW,
+                    capabilities=[
+                        AgentCapability.CODE_REVIEW,
+                        AgentCapability.VALIDATION,
+                    ]
+                )
+                
+                self.agents[AgentType.GENERAL] = ClaudeCodeAgent(
+                    agent_type=AgentType.GENERAL,
+                    capabilities=list(AgentCapability)
+                )
+                
+                print("✓ All Claude Code delegation agents initialized successfully", file=sys.stderr)
+            
+            except Exception as e:
+                # For unexpected errors
+                error_msg = f"Failed to initialize Claude Code agents: {e}"
+                print(f"ERROR: {error_msg}", file=sys.stderr)
+                raise RuntimeError(error_msg) from e
     
     def register_agent(self, agent_type: AgentType, agent: Agent) -> None:
         """
