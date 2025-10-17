@@ -36,19 +36,33 @@ class Storage:
     
     def save_task(self, task_id: str, task_data: Dict[str, Any]) -> None:
         """
-        Save task data.
+        Save task data atomically.
+        
+        Uses atomic write pattern (write to temp file, then rename) to prevent
+        corruption if process crashes during write.
         
         Args:
             task_id: The task ID
             task_data: Task data to save
         """
         task_file = self.storage_dir / f"{task_id}.json"
+        temp_file = self.storage_dir / f".{task_id}.json.tmp"
         
         # Add metadata
         task_data["last_updated"] = datetime.utcnow().isoformat()
         
-        with open(task_file, "w") as f:
-            json.dump(task_data, f, indent=2)
+        try:
+            # Write to temporary file first
+            with open(temp_file, "w") as f:
+                json.dump(task_data, f, indent=2)
+            
+            # Atomic rename (this is atomic on POSIX systems)
+            temp_file.replace(task_file)
+        except Exception:
+            # Clean up temp file if something went wrong
+            if temp_file.exists():
+                temp_file.unlink()
+            raise
     
     def load_task(self, task_id: str) -> Optional[Dict[str, Any]]:
         """
