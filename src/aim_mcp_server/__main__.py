@@ -9,16 +9,17 @@ from .server import create_server
 
 async def main() -> None:
     """Main entry point for the AIM MCP server."""
+    from mcp.server.stdio import stdio_server
+    
     server = create_server()
     
     # Run the server using stdio transport
-    from mcp.server.stdio import stdio_server
-    
-    async with stdio_server(server.read_stream, server.write_stream) as (read_stream, write_stream):
+    # stdio_server() provides the read/write streams from stdin/stdout
+    async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
             write_stream,
-            server.create_initialization_options()
+            server.create_initialization_options() if hasattr(server, 'create_initialization_options') else {}
         )
 
 
