@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "aim": {
+      "command": "python",
+      "args": [
+        "-m",
+        "aim_mcp_server"
+      ],
+      "env": {
+        "ANTHROPIC_API_KEY": "your-anthropic-api-key-here"
+      }
+    }
+  }
+}
