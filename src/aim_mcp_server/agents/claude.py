@@ -17,7 +17,8 @@ class ClaudeAgent(Agent):
         agent_type: AgentType = AgentType.GENERAL,
         capabilities: Optional[List[AgentCapability]] = None,
         model: str = "claude-3-5-sonnet-20241022",
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
+        min_request_interval: float = 1.0
     ):
         """
         Initialize Claude agent.
@@ -27,6 +28,7 @@ class ClaudeAgent(Agent):
             capabilities: List of capabilities (defaults to all)
             model: Claude model to use
             api_key: Anthropic API key (defaults to env var)
+            min_request_interval: Minimum seconds between API calls (rate limiting)
         """
         if capabilities is None:
             capabilities = list(AgentCapability)
@@ -35,6 +37,8 @@ class ClaudeAgent(Agent):
         
         self.model = model
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        self.min_request_interval = min_request_interval
+        self._last_request_time = 0.0
         
         if not self.api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable not set")
@@ -51,7 +55,21 @@ class ClaudeAgent(Agent):
         Returns:
             Agent output
         """
+        import asyncio
+        import time
+        
         try:
+            # Rate limiting: ensure minimum time between requests
+            current_time = time.time()
+            time_since_last_request = current_time - self._last_request_time
+            
+            if time_since_last_request < self.min_request_interval:
+                wait_time = self.min_request_interval - time_since_last_request
+                await asyncio.sleep(wait_time)
+            
+            # Update last request time
+            self._last_request_time = time.time()
+            
             # Build system prompt based on agent type
             system_prompt = self._build_system_prompt(task)
             
