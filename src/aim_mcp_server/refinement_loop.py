@@ -183,9 +183,13 @@ class RefinementLoop:
             # Check if making progress (score improving)
             if iteration > 0:
                 previous_score = iterations[iteration - 1].validation.score
-                if validation.score <= previous_score:
-                    # Not making progress, add note to feedback
-                    current_feedback += "\n\nNOTE: Previous iteration had similar or better score. Please try a different approach."
+                
+                # Only warn if score significantly decreased (not just equal or slightly lower)
+                if validation.score < previous_score * 0.95:  # 5% worse
+                    current_feedback += "\n\nWARNING: Quality decreased from previous iteration. Please try a different approach."
+                elif validation.score == previous_score and iteration > 1:
+                    # Same score for 2+ iterations - suggest trying something different
+                    current_feedback += "\n\nNOTE: Score unchanged. Consider a different approach to address remaining issues."
         
         # Max iterations reached without perfection
         final_score = iterations[-1].validation.score if iterations else 0.0
