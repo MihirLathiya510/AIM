@@ -4,6 +4,26 @@
 
 AIM is a Model Context Protocol (MCP) server that acts as a sophisticated task orchestrator for AI agents. It breaks down complex tasks, assigns them to specialized agents, enforces constraints, and iteratively refines outputs until they perfectly match user requirements.
 
+## ⚡ Two Ways to Use AIM
+
+**AIM supports BOTH Claude Pro users AND API users!**
+
+### 🔑 **Mode 1: API Mode** (With Anthropic API Key)
+- **Fully autonomous operation**
+- Makes direct API calls to Claude
+- Complete independence from Claude Desktop
+- Best for: automation, CI/CD, production use
+- Cost: Pay-per-use API pricing
+
+### 💬 **Mode 2: Claude Code Mode** (Claude Pro - No API Key Needed)
+- **Works with Claude Pro subscription only**
+- Delegates tasks back to Claude Code for execution
+- No additional API costs
+- Best for: interactive development, personal use
+- Cost: Included with Claude Pro subscription
+
+**AIM automatically detects which mode to use based on whether `ANTHROPIC_API_KEY` is set!**
+
 ## Features
 
 - 🎯 **Intelligent Task Decomposition** - Automatically breaks complex tasks into manageable subtasks
@@ -13,6 +33,7 @@ AIM is a Model Context Protocol (MCP) server that acts as a sophisticated task o
 - 📝 **Audit Trail** - Complete logging of all decisions, iterations, and validations
 - 🔌 **Plug-and-Play** - Works with Claude Desktop, Claude Code, and any MCP-compatible client
 - 🛡️ **Hallucination Mitigation** - Review agents validate outputs for accuracy and completeness
+- 🎛️ **Dual Mode Support** - Works with OR without API key
 
 ## Architecture
 
@@ -56,32 +77,64 @@ pip install aim-mcp-server
 
 ## Configuration
 
-### 1. Set API Key
+Choose your installation method based on whether you have an API key:
 
+### 🔑 **Option A: API Mode** (With API Key)
+
+**Step 1:** Get your API key from https://console.anthropic.com/settings/keys  
+(New users get $5 free credits!)
+
+**Step 2:** Set your API key:
 ```bash
 export ANTHROPIC_API_KEY="your-anthropic-api-key"
 ```
 
-### 2. Connect to Claude Desktop
-
-#### Option A: Using Claude CLI
-
+**Step 3:** Add AIM to Claude:
 ```bash
-# Add AIM to Claude Desktop
-claude mcp add --transport stdio aim -- python -m aim_mcp_server
-
-# Verify installation
-claude mcp list
+claude mcp add --transport stdio aim --env ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY -- python -m aim_mcp_server
+claude mcp list  # Verify
 ```
 
-#### Option B: Manual Configuration
+**Restart Claude Desktop** and you're ready! AIM will run in **autonomous API mode**.
 
-Edit your Claude Desktop configuration file:
+---
+
+### 💬 **Option B: Claude Code Mode** (No API Key - Claude Pro Only)
+
+**For users with Claude Pro subscription who don't want to pay for API access.**
+
+**Step 1:** Install dependencies:
+```bash
+pip install mcp anthropic pydantic python-dateutil pyyaml
+```
+
+**Step 2:** Add AIM without API key:
+```bash
+claude mcp add --transport stdio aim -- python -m aim_mcp_server
+claude mcp list  # Should show "Connected"
+```
+
+**Step 3:** Restart Claude Desktop
+
+AIM will automatically detect no API key and run in **Claude Code delegation mode**.  
+When you start chatting with Claude, you'll see:
+```
+💬 AIM Mode: No API key - Using Claude Code delegation
+```
+
+This means tasks will be delegated back to Claude for execution (included in your Pro subscription).
+
+---
+
+### ⚙️ Manual Configuration (Alternative)
+
+Edit your Claude Desktop config file:
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
 **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
+**With API Key:**
 ```json
 {
   "mcpServers": {
@@ -96,9 +149,19 @@ Edit your Claude Desktop configuration file:
 }
 ```
 
-### 3. Restart Claude Desktop
+**Without API Key (Claude Pro mode):**
+```json
+{
+  "mcpServers": {
+    "aim": {
+      "command": "python",
+      "args": ["-m", "aim_mcp_server"]
+    }
+  }
+}
+```
 
-After adding the configuration, restart Claude Desktop to load the AIM server.
+Then restart Claude Desktop.
 
 ## Usage
 
