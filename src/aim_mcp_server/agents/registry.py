@@ -17,6 +17,22 @@ class AgentRegistry:
     
     def _initialize_default_agents(self) -> None:
         """Initialize default agent pool."""
+        import os
+        import sys
+        
+        # Check for API key before attempting to initialize agents
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            error_msg = (
+                "ANTHROPIC_API_KEY environment variable not set.\n"
+                "AIM requires an Anthropic API key to function.\n\n"
+                "Please set it with:\n"
+                "  export ANTHROPIC_API_KEY='your-key-here'\n\n"
+                "Or add it to your Claude Desktop config:\n"
+                '  "env": {"ANTHROPIC_API_KEY": "your-key-here"}'
+            )
+            print(f"ERROR: {error_msg}", file=sys.stderr)
+            raise ValueError(error_msg)
+        
         try:
             # Create specialized agents
             self.agents[AgentType.CODING] = ClaudeAgent(
@@ -50,9 +66,14 @@ class AgentRegistry:
                 capabilities=list(AgentCapability)
             )
         
+        except ValueError:
+            # Re-raise ValueError (from API key check or ClaudeAgent init)
+            raise
         except Exception as e:
-            # If agent initialization fails, log but don't crash
-            print(f"Warning: Failed to initialize some agents: {e}")
+            # For other unexpected errors, provide clear error message
+            error_msg = f"Failed to initialize AI agents: {e}"
+            print(f"ERROR: {error_msg}", file=sys.stderr)
+            raise RuntimeError(error_msg) from e
     
     def register_agent(self, agent_type: AgentType, agent: Agent) -> None:
         """
