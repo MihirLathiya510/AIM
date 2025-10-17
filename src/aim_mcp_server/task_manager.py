@@ -284,7 +284,15 @@ class TaskManager:
         return {
             "task_id": task.task_id,
             "description": task.description,
-            "constraints": [str(c) for c in task.constraints],
+            "constraints": [
+                {
+                    "type": c.type.value,
+                    "description": c.description,
+                    "value": c.value,
+                    "required": c.required
+                }
+                for c in task.constraints
+            ],
             "status": task.status.value,
             "subtasks": [
                 {
@@ -306,10 +314,32 @@ class TaskManager:
     
     def _task_from_dict(self, data: Dict[str, Any]) -> Task:
         """Convert dictionary to task."""
+        from .utils.constraints import Constraint, ConstraintType
+        
+        # Deserialize constraints from stored dictionaries
+        constraints = []
+        for c_data in data.get("constraints", []):
+            # Handle both old string format and new dict format for backwards compatibility
+            if isinstance(c_data, str):
+                # Old format: just store as custom constraint
+                constraints.append(Constraint(
+                    type=ConstraintType.CUSTOM,
+                    description=c_data,
+                    required=True
+                ))
+            else:
+                # New format: reconstruct from dictionary
+                constraints.append(Constraint(
+                    type=ConstraintType(c_data["type"]),
+                    description=c_data["description"],
+                    value=c_data.get("value"),
+                    required=c_data.get("required", True)
+                ))
+        
         return Task(
             task_id=data["task_id"],
             description=data["description"],
-            constraints=[],  # Would need to deserialize properly
+            constraints=constraints,
             status=TaskStatus(data["status"]),
             subtasks=[
                 Subtask(
